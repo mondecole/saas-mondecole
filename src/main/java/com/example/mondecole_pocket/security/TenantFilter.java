@@ -29,7 +29,7 @@ public class TenantFilter extends OncePerRequestFilter {
         String path = request.getServletPath();
         return path.startsWith("/api/public") ||
                 path.startsWith("/actuator") ||
-                path.startsWith("/health") ||
+                path.startsWith("/api/health") ||
                 path.startsWith("/swagger-ui") ||
                 path.startsWith("/v3/api-docs") ||
                 path.startsWith("/api/benchmark") ||
