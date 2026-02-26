@@ -1,4 +1,4 @@
-package com.example.jwt_authenticator.config;
+package com.example.mondecole_pocket.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;

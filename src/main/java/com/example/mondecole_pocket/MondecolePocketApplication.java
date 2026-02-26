@@ -1,13 +1,13 @@
-package com.example.jwt_authenticator;
+package com.example.mondecole_pocket;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class JwtAuthenticatorApplication {
+public class MondecolePocketApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(JwtAuthenticatorApplication.class, args);
+		SpringApplication.run(MondecolePocketApplication.class, args);
 	}
 
 }

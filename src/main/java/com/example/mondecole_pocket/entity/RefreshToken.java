@@ -1,6 +1,6 @@
-package com.example.jwt_authenticator.entity;
+package com.example.mondecole_pocket.entity;
 
-import com.example.jwt_authenticator.dto.TokenType;
+import com.example.mondecole_pocket.entity.enums.TokenType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -13,11 +13,13 @@ import java.time.LocalDateTime;
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @ToString(onlyExplicitlyIncluded = true)
 @Entity
-@Table(name = "refresh_tokens", indexes = {
+@Table(name = "refresh_tokens"
+/*, indexes = {
         @Index(name = "idx_refresh_token_hash", columnList = "token_hash"),
         @Index(name = "idx_refresh_user_id", columnList = "user_id"),
-        @Index(name = "idx_refresh_expires", columnList = "expires_at")
-})
+        @Index(name = "idx_refresh_org_id", columnList = "organization_id"),  // ← NOUVEAU
+        @Index(name = "idx_refresh_expires", columnList = "expires_at")}*/
+)
 public class RefreshToken {
 
     @Id
@@ -32,6 +34,10 @@ public class RefreshToken {
     @Column(name = "user_id", nullable = false)
     @ToString.Include
     private Long userId;
+
+    @Column(name = "organization_id", nullable = false)
+    @ToString.Include
+    private Long organizationId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "token_type", nullable = false, length = 20)

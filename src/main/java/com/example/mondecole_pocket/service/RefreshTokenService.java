@@ -1,10 +1,10 @@
-package com.example.jwt_authenticator.service;
+package com.example.mondecole_pocket.service;
 
-import com.example.jwt_authenticator.dto.TokenType;
-import com.example.jwt_authenticator.entity.RefreshToken;
-import com.example.jwt_authenticator.exception.ErrorCode;
-import com.example.jwt_authenticator.exception.InvalidTokenException;
-import com.example.jwt_authenticator.repository.RefreshTokenRepository;
+import com.example.mondecole_pocket.entity.enums.TokenType;
+import com.example.mondecole_pocket.entity.RefreshToken;
+import com.example.mondecole_pocket.exception.ErrorCode;
+import com.example.mondecole_pocket.exception.InvalidTokenException;
+import com.example.mondecole_pocket.repository.RefreshTokenRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,10 +39,11 @@ public class RefreshTokenService {
     @Value("${app.security.refresh.max-active-sessions:5}")
     private int maxActiveSessions;
 
-    public record Issued(String rawToken, LocalDateTime expiresAt, TokenType type, Long userId) {}
+    public record Issued(String rawToken, LocalDateTime expiresAt, TokenType type,
+                         Long userId, Long organizationId) {}
 
     @Transactional
-    public Issued issue(Long userId, boolean rememberMe, HttpServletRequest request) {
+    public Issued issue(Long userId, Long organizationId, boolean rememberMe, HttpServletRequest request) {
         TokenType type = rememberMe ? TokenType.REMEMBER_ME : TokenType.REFRESH;
         int days = rememberMe ? rememberDays : refreshDays;
 
@@ -57,6 +58,7 @@ public class RefreshTokenService {
         RefreshToken entity = RefreshToken.builder()
                 .tokenHash(hash)
                 .userId(userId)
+                .organizationId(organizationId)  // ✅ AJOUT
                 .tokenType(type)
                 .createdAt(now)
                 .lastUsedAt(now)
@@ -68,7 +70,7 @@ public class RefreshTokenService {
                 .build();
 
         refreshTokenRepository.save(entity);
-        return new Issued(raw, exp, type, userId);
+        return new Issued(raw, exp, type, userId, organizationId);  // ✅ AJOUT
     }
 
     @Transactional
@@ -96,14 +98,28 @@ public class RefreshTokenService {
         RefreshToken old = validate(rawToken);
 
         if (!rotate) {
-            return new Issued(rawToken, old.getExpiresAt(), old.getTokenType(), old.getUserId());
+            // ✅ AJOUT organizationId dans le return
+            return new Issued(
+                    rawToken,
+                    old.getExpiresAt(),
+                    old.getTokenType(),
+                    old.getUserId(),
+                    old.getOrganizationId()  // ← AJOUT ICI
+            );
         }
 
         old.revoke();
         refreshTokenRepository.save(old);
 
         boolean rememberMe = old.getTokenType() == TokenType.REMEMBER_ME;
-        return issue(old.getUserId(), rememberMe, request);
+
+        // ✅ AJOUT organizationId dans l'appel à issue()
+        return issue(
+                old.getUserId(),
+                old.getOrganizationId(),  // ← AJOUT ICI
+                rememberMe,
+                request
+        );
     }
 
     @Transactional

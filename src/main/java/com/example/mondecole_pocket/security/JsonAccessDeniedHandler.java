@@ -1,6 +1,6 @@
-package com.example.jwt_authenticator.security;
+package com.example.mondecole_pocket.security;
 
-import com.example.jwt_authenticator.dto.ApiError;
+import com.example.mondecole_pocket.dto.ApiError;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

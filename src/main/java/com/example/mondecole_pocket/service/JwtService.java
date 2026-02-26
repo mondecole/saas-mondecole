@@ -1,8 +1,8 @@
-package com.example.jwt_authenticator.service;
+package com.example.mondecole_pocket.service;
 
-import com.example.jwt_authenticator.exception.ErrorCode;
-import com.example.jwt_authenticator.exception.InvalidTokenException;
-import com.example.jwt_authenticator.exception.TokenExpiredException;
+import com.example.mondecole_pocket.exception.ErrorCode;
+import com.example.mondecole_pocket.exception.InvalidTokenException;
+import com.example.mondecole_pocket.exception.TokenExpiredException;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
@@ -48,6 +48,64 @@ public class JwtService {
         }
     }
 
+    public Long extractOrganizationId(String token) {
+        return extractClaim(token, claims -> {
+            Object orgId = claims.get("organizationId");
+            if (orgId instanceof Integer) {
+                return ((Integer) orgId).longValue();
+            }
+            if (orgId instanceof Long) {
+                return (Long) orgId;
+            }
+            return null;
+        });
+    }
+
+    public Optional<Long> extractOrganizationIdSafe(String token) {
+        try {
+            return Optional.ofNullable(extractOrganizationId(token));
+        } catch (RuntimeException e) {
+            log.debug("JWT extractOrganizationIdSafe failed: {}", e.getClass().getSimpleName());
+            return Optional.empty();
+        }
+    }
+
+    public Long extractUserId(String token) {
+        return extractClaim(token, claims -> {
+            Object userId = claims.get("userId");
+            if (userId instanceof Integer) {
+                return ((Integer) userId).longValue();
+            }
+            if (userId instanceof Long) {
+                return (Long) userId;
+            }
+            return null;
+        });
+    }
+
+    public Optional<Long> extractUserIdSafe(String token) {
+        try {
+            return Optional.ofNullable(extractUserId(token));
+        } catch (RuntimeException e) {
+            log.debug("JWT extractUserIdSafe failed: {}", e.getClass().getSimpleName());
+            return Optional.empty();
+        }
+    }
+
+    // ✅ NOUVEAU : Extraire le rôle (String)
+    public String extractRole(String token) {
+        return extractClaim(token, claims -> (String) claims.get("role"));
+    }
+
+    public Optional<String> extractRoleSafe(String token) {
+        try {
+            return Optional.ofNullable(extractRole(token));
+        } catch (RuntimeException e) {
+            log.debug("JWT extractRoleSafe failed: {}", e.getClass().getSimpleName());
+            return Optional.empty();
+        }
+    }
+
     public Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
     }
@@ -86,19 +144,52 @@ public class JwtService {
 
     public String generateToken(UserDetails userDetails) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("roles", toRoleNames(userDetails.getAuthorities()));
+        // ✅ CHANGEMENT : role en String au lieu de roles en Array
+        claims.put("role", extractSingleRole(userDetails.getAuthorities()));
         return createToken(claims, userDetails.getUsername());
     }
 
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
         Map<String, Object> claims = new HashMap<>(extraClaims);
-        claims.putIfAbsent("roles", toRoleNames(userDetails.getAuthorities()));
+        // ✅ CHANGEMENT : role en String
+        claims.putIfAbsent("role", extractSingleRole(userDetails.getAuthorities()));
         return createToken(claims, userDetails.getUsername());
+    }
+
+    public String generateToken(Long userId, Long organizationId, String username,
+                                Collection<? extends GrantedAuthority> authorities) {
+        Map<String, Object> claims = new HashMap<>();
+
+        claims.put("userId", userId);
+        claims.put("organizationId", organizationId);
+        // ✅ CHANGEMENT : role en String au lieu de roles en Array
+        claims.put("role", extractSingleRole(authorities));
+
+        log.info("✅ Generating JWT: userId={}, orgId={}, username={}, role={}",
+                userId, organizationId, username, claims.get("role"));
+
+        return createToken(claims, username);
+    }
+
+    public String generateToken(Long userId, Long organizationId, String username,
+                                Collection<? extends GrantedAuthority> authorities,
+                                Map<String, Object> extraClaims) {
+        Map<String, Object> claims = new HashMap<>(extraClaims);
+
+        claims.putIfAbsent("userId", userId);
+        claims.putIfAbsent("organizationId", organizationId);
+        // ✅ CHANGEMENT : role en String
+        claims.putIfAbsent("role", extractSingleRole(authorities));
+
+        return createToken(claims, username);
     }
 
     private String createToken(Map<String, Object> claims, String subject) {
         Date now = new Date(System.currentTimeMillis());
         Date exp = new Date(System.currentTimeMillis() + expirationMs);
+
+        log.debug("Creating JWT: subject={}, iat={}, exp={}, claims={}",
+                subject, now, exp, claims.keySet());
 
         return Jwts.builder()
                 .claims(claims)
@@ -154,7 +245,17 @@ public class JwtService {
                 .toLocalDateTime();
     }
 
-    private static List<String> toRoleNames(Collection<? extends GrantedAuthority> authorities) {
-        return authorities.stream().map(GrantedAuthority::getAuthority).toList();
+    // ✅ NOUVELLE MÉTHODE : Extraire UN SEUL rôle en String (sans le préfixe ROLE_)
+    private static String extractSingleRole(Collection<? extends GrantedAuthority> authorities) {
+        return authorities.stream()
+                .map(GrantedAuthority::getAuthority)
+                .findFirst()
+                .map(role -> role.replace("ROLE_", "")) // Enlever le préfixe ROLE_
+                .orElse("USER");
     }
+
+    // ❌ SUPPRIMÉ : Ne plus utiliser cette méthode
+    // private static List<String> toRoleNames(Collection<? extends GrantedAuthority> authorities) {
+    //     return authorities.stream().map(GrantedAuthority::getAuthority).toList();
+    // }
 }

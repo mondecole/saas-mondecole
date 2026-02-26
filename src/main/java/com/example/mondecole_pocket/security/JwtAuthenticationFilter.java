@@ -1,9 +1,9 @@
-package com.example.jwt_authenticator.security;
+package com.example.mondecole_pocket.security;
 
-import com.example.jwt_authenticator.exception.ErrorCode;
-import com.example.jwt_authenticator.exception.InvalidTokenException;
-import com.example.jwt_authenticator.exception.TokenExpiredException;
-import com.example.jwt_authenticator.service.JwtService;
+import com.example.mondecole_pocket.exception.ErrorCode;
+import com.example.mondecole_pocket.exception.InvalidTokenException;
+import com.example.mondecole_pocket.exception.TokenExpiredException;
+import com.example.mondecole_pocket.service.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,7 +22,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-import static com.example.jwt_authenticator.exception.ErrorCode.INVALID_TOKEN;
+import static com.example.mondecole_pocket.exception.ErrorCode.INVALID_TOKEN;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -44,7 +44,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String path = request.getServletPath();
         return path.startsWith("/api/auth/")
                 || path.startsWith("/swagger-ui")
-                || path.startsWith("/v3/api-docs");
+                || path.startsWith("/v3/api-docs")
+                || path.startsWith("/api/benchmark");
     }
 
     @Override

@@ -1,7 +1,7 @@
-package com.example.jwt_authenticator.repository;
+package com.example.mondecole_pocket.repository;
 
-import com.example.jwt_authenticator.dto.TokenType;
-import com.example.jwt_authenticator.entity.RefreshToken;
+import com.example.mondecole_pocket.entity.enums.TokenType;
+import com.example.mondecole_pocket.entity.RefreshToken;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
