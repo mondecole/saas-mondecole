@@ -76,6 +76,10 @@
         },
         "test": {
           "builder": "@angular/build:unit-test"
+          "options": {
+            "reporters": ["junit"],
+            "junitReportingOutputDirectory": "test-results"
+          }
         }
       }
     }
