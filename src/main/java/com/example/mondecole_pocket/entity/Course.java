@@ -38,7 +38,7 @@ public class Course {
     @Column(nullable = false, length = 200)
     private String title;
 
-    @Column(length = 200)
+    @Column(length = 200, nullable = false)
     private String slug;
 
     @Column(length = 500)

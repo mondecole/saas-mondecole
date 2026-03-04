@@ -3,7 +3,9 @@ package com.example.mondecole_pocket.service;
 import com.example.mondecole_pocket.dto.*;
 import com.example.mondecole_pocket.entity.Course;
 import com.example.mondecole_pocket.entity.User;
+import com.example.mondecole_pocket.exception.CourseAlreadyPublishedException;
 import com.example.mondecole_pocket.exception.CourseNotFoundException;
+import com.example.mondecole_pocket.exception.CourseNotPublishedException;
 import com.example.mondecole_pocket.repository.CourseRepository;
 import com.example.mondecole_pocket.security.TenantContext;
 import lombok.RequiredArgsConstructor;
@@ -169,9 +171,7 @@ public class CourseService {
         log.info("✅ Course deleted: id={}, title={}", course.getId(), course.getTitle());
     }
 
-    /**
-     * Publish course
-     */
+
     @Transactional
     public CourseDetailResponse publishCourse(Long courseId, Long authorId) {
         Long organizationId = TenantContext.getTenantId();
@@ -181,7 +181,7 @@ public class CourseService {
                 .orElseThrow(() -> new CourseNotFoundException("Course not found"));
 
         if (course.getPublished()) {
-            throw new IllegalStateException("Course is already published");
+            throw new CourseAlreadyPublishedException("Course is already published"); // ← FIX
         }
 
         course.setPublished(true);
@@ -193,9 +193,6 @@ public class CourseService {
         return toCourseDetailResponse(course);
     }
 
-    /**
-     * Unpublish course
-     */
     @Transactional
     public CourseDetailResponse unpublishCourse(Long courseId, Long authorId) {
         Long organizationId = TenantContext.getTenantId();
@@ -205,7 +202,7 @@ public class CourseService {
                 .orElseThrow(() -> new CourseNotFoundException("Course not found"));
 
         if (!course.getPublished()) {
-            throw new IllegalStateException("Course is not published");
+            throw new CourseNotPublishedException("Course is not published"); // ← FIX
         }
 
         course.setPublished(false);

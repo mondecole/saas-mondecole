@@ -10,6 +10,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.lang.NonNull;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -33,7 +35,7 @@ public class TenantFilter extends OncePerRequestFilter {
                 path.startsWith("/swagger-ui") ||
                 path.startsWith("/v3/api-docs") ||
                 path.startsWith("/api/benchmark") ||
-                path.equals("/api/auth/user-organization"); // ✅ AJOUT
+                path.equals("/api/auth/user-organization");
     }
 
     @Override
@@ -53,14 +55,11 @@ public class TenantFilter extends OncePerRequestFilter {
 
             if (authHeader != null && authHeader.startsWith("Bearer ")) {
                 String token = authHeader.substring(7);
-
                 try {
                     organizationId = jwtService.extractOrganizationId(token);
-
                     if (organizationId != null) {
                         log.debug("✅ Tenant {} résolu depuis JWT", organizationId);
                     }
-
                 } catch (Exception e) {
                     log.debug("JWT invalide ou expiré, tentative fallback...");
                 }
@@ -71,29 +70,22 @@ public class TenantFilter extends OncePerRequestFilter {
             // ════════════════════════════════════════════════════════
 
             if (organizationId == null && request.getServletPath().equals("/api/auth/login")) {
-
-                // ✅ LOGS DE DEBUG CRITIQUES
                 log.info("🔍 TenantFilter: Extraction organizationId pour login");
-                log.info("🔍 TenantFilter: Request class = {}", request.getClass().getName());
-                log.info("🔍 TenantFilter: Is CachedBodyHttpServletRequest? {}",
-                        request instanceof CachedBodyHttpServletRequest);
-
                 organizationId = extractOrganizationFromLoginBody(request, response);
-
                 if (organizationId == null) {
                     return; // Erreur déjà envoyée
                 }
-
                 log.info("✅ TenantFilter: Tenant {} résolu depuis username lookup", organizationId);
             }
 
             // ════════════════════════════════════════════════════════
-            // Si toujours null → erreur
+            // FIX : Si pas de tenant résolu → laisser passer
+            // Spring Security interceptera et renverra 401 proprement
             // ════════════════════════════════════════════════════════
 
             if (organizationId == null) {
-                log.warn("⚠️ Tenant non résolu - Path: {}", request.getRequestURI());
-                response.sendError(400, "Organization not specified");
+                log.debug("⚠️ Pas de tenant résolu pour {} — délégation à Spring Security", request.getRequestURI());
+                filterChain.doFilter(request, response);
                 return;
             }
 
@@ -103,7 +95,7 @@ public class TenantFilter extends OncePerRequestFilter {
 
             if (!organizationRepository.existsByIdAndActiveTrue(organizationId)) {
                 log.warn("⚠️ Organisation {} inexistante ou inactive", organizationId);
-                response.sendError(400, "Invalid organization");
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid organization");
                 return;
             }
 
@@ -126,60 +118,45 @@ public class TenantFilter extends OncePerRequestFilter {
             HttpServletResponse response) throws IOException {
 
         try {
-            log.info("🔍 extractOrganizationFromLoginBody: Début");
-            log.info("🔍 extractOrganizationFromLoginBody: Request type = {}",
-                    request.getClass().getName());
-
-            // ✅ Vérifier que la request est wrappée
             if (!(request instanceof CachedBodyHttpServletRequest)) {
                 log.error("❌ Request non wrappée! CachedBodyFilter n'a pas fonctionné.");
-                log.error("❌ Request class = {}", request.getClass().getName());
-                response.sendError(500, "Internal server error");
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal server error");
                 return null;
             }
 
             CachedBodyHttpServletRequest cachedRequest = (CachedBodyHttpServletRequest) request;
             String body = cachedRequest.getBody();
 
-            log.info("🔍 Body extrait: {}", body);
-
             if (body == null || body.isBlank()) {
                 log.warn("⚠️ Body vide pour /api/auth/login");
-                response.sendError(400, "Missing request body");
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing request body");
                 return null;
             }
 
-            // Parse JSON pour extraire le username
             String username = extractJsonField(body, "username");
 
             if (username == null || username.isBlank()) {
                 log.warn("⚠️ Username manquant dans le body");
-                response.sendError(400, "Username is required");
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Username is required");
                 return null;
             }
 
-            log.info("🔍 Lookup organization pour username: {}", username);
-
-            // ✅ Requête DB : username → organizationId
-            Long orgId = userRepository.findOrganizationIdByUsername(username)
-                    .orElse(null);
+            Long orgId = userRepository.findOrganizationIdByUsername(username).orElse(null);
 
             if (orgId == null) {
                 log.warn("⚠️ Aucune organisation trouvée pour username: {}", username);
-                response.sendError(401, "Invalid credentials");
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid credentials");
                 return null;
             }
 
-            log.info("✅ Organization {} trouvée pour username: {}", orgId, username);
             return orgId;
 
         } catch (Exception e) {
             log.error("❌ Erreur lors de l'extraction du tenant: {}", e.getMessage(), e);
-            response.sendError(500, "Internal server error");
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal server error");
             return null;
         }
     }
-
 
     private String extractJsonField(String json, String fieldName) {
         try {

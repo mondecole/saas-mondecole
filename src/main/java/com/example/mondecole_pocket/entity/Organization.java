@@ -73,7 +73,7 @@ public class Organization {
     private String activityDeclarationNumber;
 
     @Enumerated(EnumType.STRING)
-    @Column(length = 50)
+    @Column(length = 50, nullable = false)
     private OrganizationType type;
 
     @Enumerated(EnumType.STRING)

@@ -9,7 +9,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.LogoutFilter;
 import org.springframework.web.cors.CorsConfigurationSource;
 
@@ -50,14 +49,24 @@ public class SecurityConfig {
                         .accessDeniedHandler(accessDeniedHandler)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/health", "/api/benchmark/**", "/error", "/api/auth/**", "/api/public/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers(
+                                "/api/health",
+                                "/api/benchmark/**",
+                                "/error",
+                                "/api/auth/**",
+                                "/api/public/**",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**"
+                        ).permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
+                // ← ORDRE ORIGINAL RESTAURÉ (évite le "no registered order" de Spring Security 7)
+                // 1. CachedBodyFilter — met le body en cache
                 .addFilterAfter(new CachedBodyFilter(), LogoutFilter.class)
-                // 2. TenantFilter (après CachedBodyFilter)
+                // 2. TenantFilter — extrait l'orgId (passe au suivant si absent, 401 géré par Spring Security)
                 .addFilterAfter(tenantFilter, CachedBodyFilter.class)
-                // 3. JwtAuthenticationFilter (après TenantFilter)
+                // 3. JwtAuthenticationFilter — valide le JWT et popule le SecurityContext
                 .addFilterAfter(jwtAuthenticationFilter, TenantFilter.class)
                 .build();
     }

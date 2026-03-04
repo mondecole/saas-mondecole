@@ -13,18 +13,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.util.stream.Collectors;
 
-/**
- * ════════════════════════════════════════════════════════
- * GLOBAL EXCEPTION HANDLER
- * ════════════════════════════════════════════════════════
- *
- * Gère toutes les exceptions de l'application
- * et retourne des ErrorResponse standardisées
- */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -147,6 +137,23 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
+    @ExceptionHandler(CourseNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleCourseNotFound(
+            CourseNotFoundException ex,
+            HttpServletRequest request) {
+
+        log.warn("Course not found: {}", ex.getMessage());
+
+        ErrorResponse response = ErrorResponse.of(
+                HttpStatus.NOT_FOUND.value(),
+                "COURSE_NOT_FOUND",
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
     @ExceptionHandler(InvalidTokenException.class)
     public ResponseEntity<ErrorResponse> handleInvalidToken(
             InvalidTokenException ex,
@@ -162,6 +169,30 @@ public class GlobalExceptionHandler {
         );
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+    }
+
+    // ════════════════════════════════════════════════════════
+    // COURSE STATE ERRORS  ← NOUVEAU : 400 pour publish/unpublish
+    // ════════════════════════════════════════════════════════
+
+    @ExceptionHandler({
+            CourseAlreadyPublishedException.class,
+            CourseNotPublishedException.class
+    })
+    public ResponseEntity<ErrorResponse> handleCourseStateError(
+            RuntimeException ex,
+            HttpServletRequest request) {
+
+        log.warn("Course state error: {}", ex.getMessage());
+
+        ErrorResponse response = ErrorResponse.of(
+                HttpStatus.BAD_REQUEST.value(),
+                "INVALID_COURSE_STATE",
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity.badRequest().body(response);
     }
 
     // ════════════════════════════════════════════════════════
@@ -190,16 +221,17 @@ public class GlobalExceptionHandler {
             IllegalStateException ex,
             HttpServletRequest request) {
 
-        log.error("Illegal state: {}", ex.getMessage(), ex);
+        // ← FIX : était 500, maintenant 400
+        log.warn("Illegal state: {}", ex.getMessage());
 
         ErrorResponse response = ErrorResponse.of(
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                "ILLEGAL_STATE",
+                HttpStatus.BAD_REQUEST.value(),
+                "INVALID_STATE",
                 ex.getMessage(),
                 request.getRequestURI()
         );
 
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        return ResponseEntity.badRequest().body(response);
     }
 
     @ExceptionHandler(Exception.class)
@@ -217,19 +249,5 @@ public class GlobalExceptionHandler {
         );
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-    }
-
-    @ExceptionHandler(CourseNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleCourseNotFound(CourseNotFoundException ex, HttpServletRequest request) {
-        log.warn("Course not found: {}", ex.getMessage());
-
-        ErrorResponse response = ErrorResponse.of(
-                HttpStatus.NOT_FOUND.value(),
-                "COURSE_NOT_FOUND",
-                ex.getMessage(),
-                request.getRequestURI()
-        );
-
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 }
