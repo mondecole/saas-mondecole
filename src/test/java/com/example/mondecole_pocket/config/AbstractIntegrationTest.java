@@ -18,54 +18,33 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.List;
 
-/**
- * Classe de base pour tous les tests d'intégration.
- *
- * - Démarre un vrai PostgreSQL via Testcontainers (Docker)
- * - Le container est partagé entre toutes les classes (static) pour
- *   éviter de redémarrer Docker à chaque classe → gain de temps
- * - Flyway migre le schéma automatiquement au démarrage du contexte Spring
- * - MockMvc teste les endpoints HTTP sans démarrer un vrai serveur
- *
- * IMPORTANT — TenantFilter + JWT :
- * TenantFilter lit l'organizationId depuis le JWT Bearer token.
- * Les requêtes MockMvc s'exécutent dans un thread séparé (RANDOM_PORT),
- * donc le filtre tourne normalement et alimente TenantContext via ThreadLocal.
- * → Utiliser le helper withAuth() sur chaque requête MockMvc.
- * → Ne jamais alimenter TenantContext manuellement dans @BeforeEach.
- *
- * IMPORTANT — Organisation en base :
- * TenantFilter appelle organizationRepository.existsByIdAndActiveTrue(orgId).
- * Chaque test d'intégration doit donc persister une Organisation active
- * avec TEST_ORG_ID dans @BeforeEach avant d'appeler withAuth().
- *
- * IMPORTANT — Pas de @Transactional sur les classes de test :
- * Avec RANDOM_PORT, chaque requête HTTP commit réellement en base dans
- * son propre thread. Le nettoyage se fait via deleteAll() dans @BeforeEach,
- * ce qui évite tous les problèmes de merge/rollback Hibernate.
- */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT) // ← MOCK → RANDOM_PORT
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)  // ← ne plante pas si pas de Docker
 @ActiveProfiles("test")
 public abstract class AbstractIntegrationTest {
 
-    // static = un seul container PostgreSQL pour toute la suite de tests.
-    // Sans static, Docker redémarre un container par classe → lent.
+    // true si on est sur Jenkins CI
+    private static final boolean CI =
+            System.getProperty("spring.profiles.active", "").contains("ci");
+
+    // Container démarré uniquement si pas en CI
     @Container
-    static PostgreSQLContainer<?> postgres =
-            new PostgreSQLContainer<>("postgres:16-alpine")
+    static PostgreSQLContainer<?> postgres;
+
+    static {
+        if (!CI) {
+            postgres = new PostgreSQLContainer<>("postgres:16-alpine")
                     .withDatabaseName("mondecole_test")
                     .withUsername("postgres")
                     .withPassword("secret");
+        }
+    }
 
-    /**
-     * Appelé AVANT le démarrage du contexte Spring.
-     * Injecte dynamiquement l'URL du container Testcontainers dans les properties,
-     * ce qui override application-test.yml.
-     */
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
+        // En CI → application-ci.properties s'applique, rien à surcharger ici
+        if (CI || postgres == null) return;
         registry.add("spring.datasource.url",      postgres::getJdbcUrl);
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
@@ -80,7 +59,6 @@ public abstract class AbstractIntegrationTest {
     @Autowired
     private JwtService jwtService;
 
-    // IDs fixes et lisibles, reproductibles d'un run à l'autre
     protected static final Long TEST_ORG_ID   = 1L;
     protected static final Long TEST_USER_ID  = 10L;
     protected static final Long OTHER_ORG_ID  = 2L;
