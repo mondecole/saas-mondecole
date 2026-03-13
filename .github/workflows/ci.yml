@@ -87,7 +87,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: novytris/mondecole-backend:latest
+          tags: novytris/mondecole-back:latest
 
       # Image frontend (nouveau)
       - name: Build and push Frontend
@@ -95,7 +95,7 @@ jobs:
         with:
           context: ./frontend
           push: true
-          tags: novytris/mondecole-frontend:latest
+          tags: novytris/mondecole-front:latest
 
   deploy:
     name: Deploy to EC2
