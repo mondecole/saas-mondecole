@@ -97,6 +97,7 @@ jobs:
           push: true
           tags: novytris/mondecole-front:latest
 
+
   deploy:
     name: Deploy to EC2
     runs-on: ubuntu-latest
